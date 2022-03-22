@@ -146,23 +146,20 @@ function pageCall(page){
 
 }
 
-const input$ = fromEvent(search, "input");
-input$
-.pipe(
-  pluck("target", "value"),
-  filter((searchValue) => searchValue.length > 3),
-  debounceTime(250),
-  distinctUntilChanged(),
-  switchMap((searchTerm) =>
-    ajax.getJSON(`${searchURL}?title=${searchTerm}`).pipe(
-      catchError((error, caught) => {
-        console.error(`Error: ${error}. Caught ${caught}`);
-        return empty();
-      })
-    )
-  )
-)
-.subscribe((response) => {
-  // update DOM
-  resultsEl.innerHTML = response.map((b) => b.name).join("<br>");
-});
+let searchInput = document.getElementById("search");
+      Rx.Observable.fromEvent(searchInput, 'input')
+        .pluck('target', 'value')
+        .filter(searchTerm => searchTerm.length > 3)
+        .debounceTime(250)
+        .distinctUntilChanged()
+        .switchMap(searchKey => Rx.Observable.ajax(`http://localhost:4001/moviesfilter?title=${searchKey}`)
+          .map(resp => ({
+              "status" : resp["status"] == 200,
+              "details" : resp["status"] == 200 ? resp["response"] : [],
+              "result_hash": Date.now()
+            })
+          )
+        )
+        .filter(resp => resp.status !== false)
+        .distinctUntilChanged((a, b) => a.result_hash === b.result_hash)
+        .subscribe(resp => showMovies(resp.details));
